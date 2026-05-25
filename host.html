@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Host</title>
+    <script src="https://js.puter.com/v2/"></script>
+<style>
+    body{
+        background: #171616;
+        font-family: "Space Grotesk", sans-serif;
+        margin:0px;
+    }
+    input{
+        background-color: #333;
+        color:white;
+        border: 2px solid blue;
+        border-radius:8px;
+        height: 40px;
+        width:300px;
+        margin:0 auto;
+    }
+    button:hover{
+        background-color: #1c1b1b;
+    }
+        
+    #join-ui{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: #1a1d29;
+        padding:20px;
+        border-radius: 20px;
+        margin: 10px;
+
+
+    }
+    p{
+        color:white;
+        text-align: center;
+    }
+    #mainstuff{
+        display: flex;
+        flex-direction: column;
+        background: #1a1d29;
+        padding:40px;
+        border-radius: 20px;
+        margin:10px;
+    }
+    #buttonsanddrop{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding:20px;
+        gap:14px;
+    }
+    button{
+        background-color: #333;
+        color:white;
+        border: 2px solid blue;
+        border-radius:8px;
+        height: 40px;
+        width:300px;
+    }
+    select{
+        background-color: #333;
+        color:white;
+        border: 2px solid blue;
+        border-radius:8px;
+        height: 40px;
+        width:300px;
+    }
+    .topnav{
+        background-color: #0098d0;
+        overflow: hidden;
+        padding:0;
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+      
+
+    }
+    .topnav a{
+        text-decoration: none;
+        color:#171616;
+        display: block;
+        font-weight:600;
+        float:left;
+        padding: 14px 16px;
+        font-weight: 600;
+        font-size: 17px;
+
+    }
+    .topnav a:hover{
+        background-color: #007aa7;
+        color:white;
+
+    }
+    .topnav a.active{
+        background-color: #007aa7;
+    }
+    h1{
+        color:white;
+    }
+    
+    </style>
+</head>
+<body>
+ <div class="topnav">
+<a href="#home">Home</a>
+<a href="#host">Host</a>
+<a href="#play">Play</a>
+
+
+    </div>
+    <div id="join-ui">
+    <button id="host" onclick="hostGame()">Host</button>
+                    <p>Coding topic:</p>
+
+    <input type="text" placeholder="topic" id='topic'>
+                <p>Desired time frame:</p>
+
+    <input type="number" value=5 id='mins'>
+        <p id="joincode"></p>
+
+    <h1 id="idnum"></h1>
+    <p id="challengetext"></p>
+
+    <p id="challenge"></p>
+        <p id="timetext"></p>
+
+    <h1 id="time"></h1>
+    <button onclick="challengeGenerate()">Start Game</button>
+</div>
+    <script type="module">
+
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+        const supabaseUrl = 'https://hlcuphzbyhnczsgoghjs.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsY3VwaHpieWhuY3pzZ29naGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NjY1MzMsImV4cCI6MjA5NTI0MjUzM30.a56VrXHwq4q8ibH-_yU7cRKC9ZH2cTeGxtw7LkEG7Qw';
+
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        let seconds;
+        let id;
+        
+        let currentUid;
+        let currentGameId;
+        let currentChallenge;
+        function getSetUid() {
+            let uid = localStorage.getItem('uid');
+            if (!uid) {
+                uid = 'guest_' + Math.random().toString(36).slice(2, 10);
+                localStorage.setItem('uid', uid);
+            }
+            return uid;
+        }
+
+        async function hostGame() {
+        
+            const uid = getSetUid();
+            const gameId = String(Math.floor(Math.random() * 900000) + 100000);
+            document.getElementById('joincode').textContent="Join Code:";
+            currentUid = uid;
+            currentGameId = gameId;
+            document.getElementById('idnum').textContent = gameId;
+
+            const result = await supabase
+                .from('player_state')
+                .upsert({
+                    uid: uid,
+                    room_id: gameId,
+                    user_type: 'host',
+                    response: "",
+                    username:"Host",
+                    time_remaining:Number(document.getElementById('mins').value)*60,
+                }, { onConflict: ['uid', 'room_id'] });
+
+            if (result.error) {
+                alert('Failed to create room: ' + result.error.message);
+            } else {
+                alert('Room created: ' + gameId);
+                document.getElementById('host').style.display = 'none';
+
+            }
+
+        }
+
+        async function challengeGenerate() {
+            const minutes=document.getElementById('mins').value;
+            const humanTopic=document.getElementById('topic').value;
+
+            const topic= await puter.ai.chat(`Generate a TRUE random challenge for me to code in ${minutes} minutes, it must be following this topic: (${humanTopic}) do not add any symbols, only pure text`,{model:"openai/gpt-5.4-nano"});
+            const challText=topic.message.content;
+            currentChallenge=challText;
+             document.getElementById('timetext').textContent="Time:";
+                                    document.getElementById('challengetext').textContent="Challenge:";
+             const result = await supabase
+                        
+
+
+                .from('player_state')
+                .upsert({
+                    uid: currentUid,
+                    room_id: currentGameId,
+                    user_type: 'host',
+                    username:"Host",
+                    response: challText,
+                    time_remaining:Number(document.getElementById('mins').value)*60,
+                }, { onConflict: ['uid', 'room_id'] });
+                document.getElementById('challenge').textContent=challText;
+                startTimer();
+
+        }
+        function startTimer(){
+            if(id){
+                clearInterval(id);
+            }
+            seconds=Number(document.getElementById("mins").value)*60;
+            id=setInterval(setTick,1000);
+        }
+        async function setTick(){
+            if(seconds>0){
+                seconds-=1;
+                const mins=Math.floor(seconds/60);
+                const trueSecs=seconds%60;
+                document.getElementById('time').textContent=pad(mins)+":"+pad(trueSecs);
+            }
+            else{
+                clearInterval(id);
+                id=null;
+                const result = await supabase
+                .from('player_state')
+                .upsert({
+                    uid: currentUid,
+                    room_id: currentGameId,
+                    user_type: 'host',
+                    username:"Host",
+                    response: currentChallenge,
+                    time_remaining:0,
+                }, { onConflict: ['uid', 'room_id'] });
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                await judge();
+                
+            }
+        }
+        function pad(n){
+            if(n<10){
+                return '0'+n;
+            }
+            return n;
+        }
+   async function judge() {
+        const { data: players, error } = await supabase
+            .from('player_state')
+            .select('uid, username, response')
+            .eq('room_id', currentGameId)
+            .eq('user_type', 'player');
+
+        if (error) {
+            console.error('Error loading players:', error.message);
+            return;
+        }
+        if (!players || players.length === 0) {
+            console.warn('No players to judge.');
+            return;
+        }
+
+        let prompt = [
+            `You are a judge at a coding competition.`,
+            `Your job is to pick the single best submission that follows this prompt:`,
+            ``,
+            `PROMPT:`,
+            `${currentChallenge}`,
+            ``,
+            `Here are the player submissions. Each one has an index, username, uid, and code.`,
+            ``
+        ].join('\n');
+
+        players.forEach((p, i) => {
+            prompt += [
+            `=== Submission #${i + 1} ===`,
+            `Username: ${p.username || 'Unknown'}`,
+            `UID: ${p.uid}`,
+            `Code:`,
+            `${p.response || '[empty]'}`,
+            ``
+            ].join('\n');
+        });
+
+        prompt += [
+            `Now pick the best submission based on correctness, clarity, and how well it matches the prompt.`,
+            `Reply in this exact JSON format, and nothing else:`,
+            ``,
+            `{`,
+            `  "index": <number index starting at 1>,`,
+            `  "username": "<username>",`,
+            `  "uid": "<uid>",`,
+            `  "reason": "<short explanation of why this response is the best>",`,
+            `  "comments": "<Any comments on any user, include name and UID, and what you think they did well>"`,
+            `}`
+        ].join('\n');
+
+        const topic = await puter.ai.chat(prompt, { model: "openai/gpt-5.4-nano" });
+        const text = topic.message.content;
+        console.log('AI judge output:', text);
+        }
+        window.challengeGenerate = challengeGenerate;
+        window.hostGame = hostGame;
+    </script>
+</body>
+</html>

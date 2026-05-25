@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Player</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/simple.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/rust/rust.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/php/php.min.js"></script>
+<style>
+    body{
+        background: #171616;
+        font-family: "Space Grotesk", sans-serif;
+        margin:0px;
+    }
+    input[type=text]{
+        background-color: #333;
+        color:white;
+        border: 2px solid blue;
+        border-radius:8px;
+        height: 40px;
+        width:300px;
+        margin:0 auto;
+    }
+        
+    #join-ui{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        background: #1a1d29;
+        padding:40px;
+        border-radius: 20px;
+        margin: 10px;
+
+
+    }
+    p{
+        color:white;
+        text-align: center;
+    }
+    #mainstuff{
+        display: flex;
+        flex-direction: column;
+        background: #1a1d29;
+        padding:40px;
+        border-radius: 20px;
+        margin:10px;
+    }
+    #buttonsanddrop{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding:20px;
+        gap:14px;
+    }
+    button{
+        background-color: #333;
+        color:white;
+        border: 2px solid blue;
+        border-radius:8px;
+        height: 40px;
+        width:300px;
+    }
+    select{
+        background-color: #333;
+        color:white;
+        border: 2px solid blue;
+        border-radius:8px;
+        height: 40px;
+        width:300px;
+    }
+    .topnav{
+        background-color: #0098d0;
+        overflow: hidden;
+        padding:0;
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+      
+
+    }
+    .topnav a{
+        text-decoration: none;
+        color:#171616;
+        display: block;
+        font-weight:600;
+        float:left;
+        padding: 14px 16px;
+        font-weight: 600;
+        font-size: 17px;
+
+    }
+    .topnav a:hover{
+        background-color: #007aa7;
+        color:white;
+
+    }
+    .topnav a.active{
+        background-color: #007aa7;
+    }
+     button:hover{
+        background-color: #1c1b1b;
+    }
+    
+    </style>
+</head>
+<body>
+    <div class="topnav">
+<a href="#home">Home</a>
+<a href="#host">Host</a>
+<a href="#play">Play</a>
+
+
+    </div>
+    <div id="join-ui">
+    <input type="text" id="code" placeholder="Room code" />
+    <input type="text" id="name" placeholder="Your Username" />
+    <button onclick="joinGame()">Join!</button>
+</div>
+<div id="mainstuff">
+    <textarea id="input"></textarea>
+    <div id="buttonsanddrop">
+    <select id="lang">
+    <option value="javascript">JavaScript</option>
+    <option value="python">Python</option>
+    <option value="clike">C / C++ / Java</option>
+    <option value="rust">Rust</option>
+    <option value="php">PHP</option>
+</select>
+
+    <!--<input type="text" id="input" placeholder="Your response" /> -->
+    <button onclick="submitResponse()">Submit Response</button>
+    </div>
+    </div>
+    <p id="challenge"></p>
+
+    <script type="module">
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+        const input = CodeMirror.fromTextArea(document.getElementById('input'), {
+        mode: 'javascript',
+        theme: 'dracula',
+        lineNumbers: true,
+        autoCloseBrackets: true,
+        indentUnit: 2,
+        tabSize: 2,
+        lineWrapping: true,
+    });
+    document.getElementById('lang').addEventListener('change', function() {
+    input.setOption('mode', this.value);
+});
+        const supabaseUrl = 'https://hlcuphzbyhnczsgoghjs.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsY3VwaHpieWhuY3pzZ29naGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NjY1MzMsImV4cCI6MjA5NTI0MjUzM30.a56VrXHwq4q8ibH-_yU7cRKC9ZH2cTeGxtw7LkEG7Qw';
+
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+        let seconds;
+        let id;
+        
+        let currentUid;
+        let currentGameId;
+        let currentChallenge=null;
+        function getPlayerUid(gameId) {
+            const key = 'player_uid_' + gameId;
+            let uid = sessionStorage.getItem(key);
+            if (!uid) {
+                uid = 'player_' + Math.random().toString(36).slice(2, 10);
+                sessionStorage.setItem(key, uid);
+            }
+            currentUid=uid;
+            return uid;
+        }
+
+        async function joinGame() {
+            const gameId = document.getElementById('code').value.trim();
+
+            if (!gameId) {
+                alert('Enter a room code first!');
+                return;
+            }
+
+            const { data: hostRows, error: hostError } = await supabase
+                .from('player_state')
+                .select('*')
+                .eq('room_id', gameId)
+                .eq('user_type', 'host');
+
+            if (hostError) {
+                alert('Failed to look up room: ' + hostError.message);
+                return;
+            }
+            if (!hostRows || hostRows.length === 0) {
+                alert('Room not found');
+                return;
+            }
+
+            const uid = getPlayerUid(gameId);
+
+            const { error: joinError } = await supabase
+                .from('player_state')
+                .upsert({
+                    uid: uid,
+                    room_id: gameId,
+                    user_type: 'player',
+                    response: '',
+                    username: document.getElementById('name').value,
+                    time_remaining: null,
+                }, { onConflict: ['uid', 'room_id', 'user_type'] });
+
+            if (joinError) {
+                alert('Failed to join: ' + joinError.message);
+            } else {
+                alert('Joined room ' + gameId);
+                document.getElementById('join-ui').style.display='none';
+            }
+            currentGameId=gameId;
+            if(id){
+                clearInterval(id);
+            }
+            id=setInterval(checkAndEnd,1000);
+
+        }
+
+        async function submitResponse() {
+            const gameId = document.getElementById('code').value.trim();
+            const response = input.getValue();
+
+            if (!gameId) {
+                alert('Enter a room code first!');
+                return;
+            }
+
+            const uid = getPlayerUid(gameId);
+
+            const { error: saveError } = await supabase
+                .from('player_state')
+                .upsert({
+                    uid: uid,
+                    room_id: gameId,
+                    user_type: 'player',
+                    response: response,
+                    username: document.getElementById('name').value,
+                    time_remaining: null,
+                }, { onConflict: ['uid', 'room_id', 'user_type'] });
+
+            if (saveError) {
+                alert('Error saving response: ' + saveError.message);
+            } else {
+                alert('Response saved!');
+            }
+        }
+        async function checkAndEnd() {
+    if (!currentGameId) return;
+
+    const { data: hostRow, error: hostError } = await supabase
+        .from('player_state')
+        .select('time_remaining, response')
+        .eq('room_id', currentGameId)
+        .eq('user_type', 'host')
+        .single();
+
+    if (hostError) {
+        console.error('Error checking time:', hostError.message);
+        return;
+    }
+    if (!hostRow) {
+        console.warn('No host row found in checkAndEnd');
+        return;
+    }
+
+    console.log('Host row in checkAndEnd:', hostRow);
+
+    if (hostRow.time_remaining === 0) {
+        await submitResponse();
+        clearInterval(id);
+        id = null;
+    }
+
+    if (hostRow.response != currentChallenge) {
+        currentChallenge = hostRow.response;
+        document.getElementById('challenge').textContent = currentChallenge;
+    }
+    }
+       
+
+        window.joinGame = joinGame;
+        window.submitResponse = submitResponse;
+    </script>
+</body>
+</html>
