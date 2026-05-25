@@ -105,10 +105,12 @@
 </head>
 <body>
  <div class="topnav">
-  <a href="./">Home</a>
-  <a href="host.html">Host</a>
-  <a href="player.html">Play</a>
-</div>
+<a href="./">Home</a>
+<a href="host.html">Host</a>
+<a href="player.html">Play</a>
+
+
+    </div>
     <div id="join-ui">
     <button id="host" onclick="hostGame()">Host</button>
                     <p>Coding topic:</p>
@@ -126,6 +128,10 @@
         <p id="timetext"></p>
 
     <h1 id="time"></h1>
+    <p id="prevwinner"></p>
+    <p id="reason"></p>
+
+
     <button onclick="challengeGenerate()">Start Game</button>
 </div>
     <script type="module">
@@ -246,60 +252,75 @@
             return n;
         }
    async function judge() {
-        const { data: players, error } = await supabase
-            .from('player_state')
-            .select('uid, username, response')
-            .eq('room_id', currentGameId)
-            .eq('user_type', 'player');
+  const { data: players, error } = await supabase
+    .from('player_state')
+    .select('uid, username, response')
+    .eq('room_id', currentGameId)
+    .eq('user_type', 'player');
 
-        if (error) {
-            console.error('Error loading players:', error.message);
-            return;
-        }
-        if (!players || players.length === 0) {
-            console.warn('No players to judge.');
-            return;
-        }
+  if (error) {
+    console.error('Error loading players:', error.message);
+    return;
+  }
+  if (!players || players.length === 0) {
+    console.warn('No players to judge.');
+    return;
+  }
 
-        let prompt = [
-            `You are a judge at a coding competition.`,
-            `Your job is to pick the single best submission that follows this prompt:`,
-            ``,
-            `PROMPT:`,
-            `${currentChallenge}`,
-            ``,
-            `Here are the player submissions. Each one has an index, username, uid, and code.`,
-            ``
-        ].join('\n');
+  let prompt = [
+    `You are a judge at a coding competition.`,
+    `Your job is to pick the single best submission that follows this prompt:`,
+    ``,
+    `PROMPT:`,
+    `${currentChallenge}`,
+    ``,
+    `Here are the player submissions. Each one has an index, username, uid, and code.`,
+    ``
+  ].join('\n');
 
-        players.forEach((p, i) => {
-            prompt += [
-            `=== Submission #${i + 1} ===`,
-            `Username: ${p.username || 'Unknown'}`,
-            `UID: ${p.uid}`,
-            `Code:`,
-            `${p.response || '[empty]'}`,
-            ``
-            ].join('\n');
-        });
+  players.forEach((p, i) => {
+    prompt += [
+      `=== Submission #${i + 1} ===`,
+      `Username: ${p.username || 'Unknown'}`,
+      `UID: ${p.uid}`,
+      `Code:`,
+      `${p.response || '[empty]'}`,
+      ``
+    ].join('\n');
+  });
 
-        prompt += [
-            `Now pick the best submission based on correctness, clarity, and how well it matches the prompt.`,
-            `Reply in this exact JSON format, and nothing else:`,
-            ``,
-            `{`,
-            `  "index": <number index starting at 1>,`,
-            `  "username": "<username>",`,
-            `  "uid": "<uid>",`,
-            `  "reason": "<short explanation of why this response is the best>",`,
-            `  "comments": "<Any comments on any user, include name and UID, and what you think they did well>"`,
-            `}`
-        ].join('\n');
+  prompt += [
+    `Now pick the best submission based on correctness, clarity, and how well it matches the prompt.`,
+    `Reply in this exact JSON format, and nothing else:`,
+    ``,
+    `{`,
+    `  "index": <number index starting at 1>,`,
+    `  "username": "<username>",`,
+    `  "uid": "<uid>",`,
+    `  "reason": "<short explanation of why this response is the best>",`,
+    `  "comments": "<Any comments on any user, include name and UID, and what you think they did well>"`,
+    `}`
+  ].join('\n');
 
-        const topic = await puter.ai.chat(prompt, { model: "openai/gpt-5.4-nano" });
-        const text = topic.message.content;
-        console.log('AI judge output:', text);
-        }
+  const topic = await puter.ai.chat(prompt, { model: "openai/gpt-5.4-nano" });
+  const text = topic.message.content;
+  console.log('AI judge output:', text);
+
+  try {
+    const judgeResult = JSON.parse(text);
+    const winnerName = judgeResult.username || "Unknown";
+    const explanation = judgeResult.reason || "No reason provided.";
+
+    document.getElementById('prevwinner').textContent =
+      `Previous winner: ${winnerName}`;
+    document.getElementById('reason').textContent =
+      `Reason: ${explanation}`;
+  } catch (err) {
+    console.error('Failed to parse judge JSON:', err);
+    document.getElementById('prevwinner').textContent = "Judge result failed to parse.";
+    document.getElementById('reason').textContent = "";
+  }
+}
         window.challengeGenerate = challengeGenerate;
         window.hostGame = hostGame;
     </script>
